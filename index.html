@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image to PDF Converter</title>
+    <style>
+      #container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+      }
+      .image-container {
+        width: calc(20% - 20px); /* Adjusted width to fit 5 images in a row */
+        margin: 10px;
+      }
+      .image-container img {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <label for="imageCount">Enter number of images:</label>
+    <input type="number" id="imageCount" value="4" min="1" />
+    <input type="file" accept="image/*" id="fileInput" />
+    <div id="container"></div>
+    <button id="downloadBtn">Download PDF</button>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.0.272/jspdf.debug.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.js"></script>
+    <script>
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", handleImageUpload);
+
+      function handleImageUpload(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = function () {
+            const resizedImg = resizeImage(img, 3.5, 4.5); // Resize image to specified dimensions
+            const imageCount = document.getElementById("imageCount").value;
+            addImageToContainer(resizedImg, imageCount);
+          };
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function resizeImage(image, widthCm, heightCm) {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const width = widthCm * 37.795275591; // Convert cm to px (1cm = 37.795275591px)
+        const height = heightCm * 37.795275591;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(image, 0, 0, width, height);
+        return canvas.toDataURL("image/jpeg");
+      }
+
+      function addImageToContainer(imageData, imageCount) {
+        const container = document.getElementById("container");
+        container.innerHTML = ""; // Clear previous images
+        for (let i = 0; i < imageCount; i++) {
+          const imageContainer = document.createElement("div");
+          imageContainer.className = "image-container";
+          const img = document.createElement("img");
+          img.src = imageData;
+          imageContainer.appendChild(img);
+          container.appendChild(imageContainer);
+        }
+        if (container.children.length === parseInt(imageCount)) {
+          document.getElementById("downloadBtn").style.display = "block";
+        }
+      }
+
+      document
+        .getElementById("downloadBtn")
+        .addEventListener("click", function () {
+          const container = document.getElementById("container");
+          const pdf = new jsPDF("p", "mm", "a4");
+          const images = container.getElementsByTagName("img");
+          const imageCount = document.getElementById("imageCount").value;
+          const imagesPerRow = 5; // Set number of images per row
+          const rows = Math.ceil(imageCount / imagesPerRow); // Calculate number of rows
+          let currentRow = 0;
+          let currentColumn = 0;
+          for (let i = 0; i < imageCount; i++) {
+            const img = images[i];
+            pdf.addImage(
+              img.src,
+              "JPEG",
+              8 + currentColumn * 40, // Adjusted position for each image
+              8 + currentRow * 55,
+              35,
+              45
+            );
+            currentColumn++;
+            if (currentColumn === imagesPerRow) {
+              currentColumn = 0;
+              currentRow++;
+            }
+          }
+          pdf.save("images.pdf");
+        });
+    </script>
+  </body>
+</html>
