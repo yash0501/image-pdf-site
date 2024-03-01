@@ -5,10 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Image to PDF Converter</title>
     <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        margin: 20px;
+      }
+      label {
+        margin-right: 10px;
+      }
+      #imageCount {
+        margin-right: 10px;
+        padding: 5px;
+      }
+      #fileInput {
+        margin-right: 10px;
+        padding: 5px;
+      }
+      #downloadBtn {
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+      }
       #container {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-around;
+        margin-top: 20px;
       }
       .image-container {
         width: calc(20% - 20px); /* Adjusted width to fit 5 images in a row */
@@ -21,11 +44,13 @@
     </style>
   </head>
   <body>
-    <label for="imageCount">Enter number of images:</label>
-    <input type="number" id="imageCount" value="4" min="1" />
-    <input type="file" accept="image/*" id="fileInput" />
+    <div class="container">
+      <label for="imageCount">Enter number of images:</label>
+      <input type="number" id="imageCount" value="4" min="1" />
+      <input type="file" accept="image/*" id="fileInput" />
+      <button id="downloadBtn">Download PDF</button>
+    </div>
     <div id="container"></div>
-    <button id="downloadBtn">Download PDF</button>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.0.272/jspdf.debug.js"></script>
@@ -40,24 +65,38 @@
         const reader = new FileReader();
         reader.onload = function (e) {
           const img = new Image();
-          img.src = e.target.result;
           img.onload = function () {
-            const resizedImg = resizeImage(img, 3.5, 4.5); // Resize image to specified dimensions
+            const resizedImgData = resizeImage(img, 3.5, 4.5); // Resize image to specified dimensions
             const imageCount = document.getElementById("imageCount").value;
-            addImageToContainer(resizedImg, imageCount);
+            addImageToContainer(resizedImgData, imageCount);
           };
+          img.src = e.target.result;
         };
         reader.readAsDataURL(file);
       }
 
-      function resizeImage(image, widthCm, heightCm) {
+      function resizeImage(image, targetWidthCm, targetHeightCm) {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        const width = widthCm * 37.795275591; // Convert cm to px (1cm = 37.795275591px)
-        const height = heightCm * 37.795275591;
-        canvas.width = width;
-        canvas.height = height;
+
+        let width = targetWidthCm * 37.795275591; // Convert cm to px (1cm = 37.795275591px)
+        let height = targetHeightCm * 37.795275591;
+
+        // Rotate the image if its height is greater than its width
+        if (image.height > image.width) {
+          canvas.width = height;
+          canvas.height = width;
+          ctx.rotate(Math.PI / 2);
+          ctx.translate(0, -height);
+        } else {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        // Draw image onto canvas at target dimensions
         ctx.drawImage(image, 0, 0, width, height);
+
+        // Get the resized image data as a data URL
         return canvas.toDataURL("image/jpeg");
       }
 
@@ -84,27 +123,40 @@
           const pdf = new jsPDF("p", "mm", "a4");
           const images = container.getElementsByTagName("img");
           const imageCount = document.getElementById("imageCount").value;
-          const imagesPerRow = 5; // Set number of images per row
+          const imagesPerRow = 4; // Set number of images per row
           const rows = Math.ceil(imageCount / imagesPerRow); // Calculate number of rows
           let currentRow = 0;
           let currentColumn = 0;
           for (let i = 0; i < imageCount; i++) {
-            const img = images[i];
+            const img = images[0];
+            pdf.rect(
+              5 + currentColumn * 52, // X-coordinate
+              5 + currentRow * 40, // Y-coordinate
+              45, // Width of the rectangle
+              35 // Height of the rectangle
+            );
             pdf.addImage(
               img.src,
               "JPEG",
-              8 + currentColumn * 40, // Adjusted position for each image
-              8 + currentRow * 55,
-              35,
-              45
+              5 + currentColumn * 52 + 0.5, // Adjusted position for each image (add 1px for the border)
+              5 + currentRow * 40 + 0.5, // Adjusted position for each image (add 1px for the border)
+              44, // Width of the image (subtract 2px for the border)
+              34 // Height of the image (subtract 2px for the border)
             );
+
             currentColumn++;
             if (currentColumn === imagesPerRow) {
               currentColumn = 0;
               currentRow++;
             }
           }
-          pdf.save("images.pdf");
+          const now = new Date();
+          const dateTimeString = now
+            .toISOString()
+            .replace(/:/g, "-")
+            .replace(/\..+/, "");
+          const pdfName = "image_" + dateTimeString + ".pdf";
+          pdf.save(pdfName);
         });
     </script>
   </body>
